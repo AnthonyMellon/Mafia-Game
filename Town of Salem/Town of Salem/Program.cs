@@ -18,6 +18,7 @@ namespace Town_of_Salem
             public string personality;
             public bool alive;
             public string message;
+            public bool somethingToSay;
             public int votes; //Number of votes their vote is worth
             public int[] suspicions; //Range from 0 to 100. 0 they trust someone with their lives. 100 they'll try to lynch them every round. 50 is neutral.
             public string[] roleThoughts; //What they think each players role is
@@ -65,6 +66,18 @@ namespace Town_of_Salem
             Console.ForegroundColor = ConsoleColor.Gray;
             Console.Write(message);
         }
+        static int restrict(int number, int min, int max)
+        {
+            if (number < min)
+            {
+                number = min;
+            }
+            else if (number > max)
+            {
+                number = max;
+            }
+            return number;
+        }
 
         static void Initialisation()
         {
@@ -83,8 +96,8 @@ namespace Town_of_Salem
                 players[currentPlayer].votes = 1;
                 players[currentPlayer].alive = true;
                 players[currentPlayer].suspicions = new int[playerCount];
-                players[currentPlayer].roleThoughts = new string[playerCount];
-                players[currentPlayer].message = "Yes";
+                players[currentPlayer].roleThoughts = new string[playerCount];                
+                players[currentPlayer].somethingToSay = true;
 
                 switch(players[currentPlayer].affiliation) //Set role based on affiliation
                 {
@@ -136,8 +149,8 @@ namespace Town_of_Salem
         }
 
         static void GameLoop(Player[] playerList)
-        {
-            string playerMessage;
+        {            
+            const int SUSPICION_THRESHOLD_NORMAL = 75, SUSPICION_THRESHOLD_EXTREME = 90, TRUSTING_THRESHOLD_NORMAL = 25, TRUSTING_THRESHOLD_EXTREME = 10;
             bool game = true;
             Random rand = new Random();
             while(game == true)
@@ -154,6 +167,7 @@ namespace Town_of_Salem
                         Console.ForegroundColor = ConsoleColor.Gray;                        
                         if (currentPlayer == 0) //If it's the human controlled player
                         {
+                            string playerMessage;
                             Console.ForegroundColor = ConsoleColor.Green;
                             Console.Write(playerList[currentPlayer].Name + ": ");
                             Console.ForegroundColor = ConsoleColor.Gray;
@@ -164,28 +178,33 @@ namespace Town_of_Salem
                             }
                         }
                         else //If it's a computer controlled player
-                        {                            
-                            if (playerList[currentPlayer].message != "no")
-                            {
-                                string messageToAdd;
-                                messageToAdd = "I'm suspicious of ";
+                        {
+                            string cpuMessage;
+                            if (playerList[currentPlayer].somethingToSay == true)
+                            {                                
+                                cpuMessage = "I'm suspicious of ";
                                 for (int target = 0; target < playerList.Length; target++)
                                 {
-                                    if (playerList[currentPlayer].suspicions[target] > 75)
-                                    {                                        
-                                        messageToAdd += (playerList[target].Name + " and ");
+                                    if (playerList[currentPlayer].suspicions[target] > SUSPICION_THRESHOLD_NORMAL)
+                                    {                
+                                        for (int i = 0; i < playerList.Length; i++) //Update each players suspicions based on what this player thinks
+                                        {
+                                            playerList[i].suspicions[target] = restrict((playerList[i].suspicions[target] + restrict((playerList[i].suspicions[target] / 10) - (playerList[i].suspicions[currentPlayer] / 10), 1, 10)), 0, 100);
+                                            playerList[i].suspicions[currentPlayer] = restrict((playerList[i].suspicions[currentPlayer] + (playerList[i].suspicions[currentPlayer] / 10) - (playerList[i].suspicions[target] / 10)), 0, 100);
+                                        }
+                                        cpuMessage += (playerList[target].Name + " and ");
                                     }
                                 }
-                                playerList[currentPlayer].message = messageToAdd;
+                                playerList[currentPlayer].message = cpuMessage;
                             }
                             else
                             {
+                                cpuMessage = "No";
                                 endDiscussionVotes++;
                             }
-                            WriteMessage(playerList[currentPlayer].Name, playerList[currentPlayer].message + "\n", ConsoleColor.Green);
-                            playerList[currentPlayer].message = "no";
+                            WriteMessage(playerList[currentPlayer].Name, cpuMessage + "\n", ConsoleColor.Green);                            
                         }
-                        Thread.Sleep(50);
+                        Thread.Sleep(100);
                     }
 
                     Console.WriteLine(endDiscussionVotes + " of " + playerList.Length + " votes");
