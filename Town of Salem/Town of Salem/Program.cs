@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.Threading;
 
 namespace Town_of_Salem
 {
@@ -16,6 +17,7 @@ namespace Town_of_Salem
             public string role;
             public string personality;
             public bool alive;
+            public string message;
             public int votes; //Number of votes their vote is worth
             public int[] suspicions; //Range from 0 to 100. 0 they trust someone with their lives. 100 they'll try to lynch them every round. 50 is neutral.
             public string[] roleThoughts; //What they think each players role is
@@ -27,9 +29,41 @@ namespace Town_of_Salem
         public static string[] MafiaRoles = {"Killer", "GodFather"};
         public static string[] SelfRoles = {"Serial Killer"};
 
-        static void GameLoop()
+        static string ReadLine(string filePath, int line)
         {
+            string output;
+            int count = 0;
+            StreamReader reader = new StreamReader(filePath);
+            do
+            {
+                output = reader.ReadLine();
+                count++;
+            } while (count < line && !reader.EndOfStream);
+            reader.Close();
+            return output;
+        }
+        static int GetFileLength(string filePath)
+        {
+            StreamReader reader = new StreamReader(filePath);
 
+            int length = 0;
+            do
+            {
+                reader.ReadLine();
+                length++;
+
+            } while (!reader.EndOfStream);
+
+            reader.Close();
+            return length;
+        }
+        static void WriteMessage(string name, string message, ConsoleColor color)
+        {
+            Console.ForegroundColor = color;
+            Console.Write(name + ": ");
+
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.Write(message);
         }
 
         static void Initialisation()
@@ -38,7 +72,7 @@ namespace Town_of_Salem
             Player[] players = new Player[playerCount];
             Random rand = new Random();
             int FirstNamesTotal = GetFileLength("First Names.txt");
-            int LastNamesTotal = GetFileLength("Last Names.txt");
+            int LastNamesTotal = GetFileLength("Last Names.txt");            
 
 
             for (int currentPlayer = 0; currentPlayer < players.Length; currentPlayer++) //Set up all players settings that dont need knowledge of other players
@@ -50,6 +84,7 @@ namespace Town_of_Salem
                 players[currentPlayer].alive = true;
                 players[currentPlayer].suspicions = new int[playerCount];
                 players[currentPlayer].roleThoughts = new string[playerCount];
+                players[currentPlayer].message = "Yes";
 
                 switch(players[currentPlayer].affiliation) //Set role based on affiliation
                 {
@@ -81,13 +116,11 @@ namespace Town_of_Salem
                         if (players[currentPlayer].affiliation == "Mafia" && (players[currentPlayer].affiliation == players[targetPlayer].affiliation))
                         {
                             players[currentPlayer].suspicions[targetPlayer] = 0;
-                            players[currentPlayer].roleThoughts[targetPlayer] = players[targetPlayer].role;
-                            Console.WriteLine($"Im {players[currentPlayer].Name}, im affiliated with the {players[currentPlayer].affiliation} and my role is {players[currentPlayer].role}");
-                            
+                            players[currentPlayer].roleThoughts[targetPlayer] = players[targetPlayer].role;                                                        
                         }
                         else
                         {
-                            players[currentPlayer].suspicions[targetPlayer] = 50;
+                            players[currentPlayer].suspicions[targetPlayer] = rand.Next(100);
                         }
                         
                     }
@@ -95,37 +128,76 @@ namespace Town_of_Salem
                 } //Set suspicions END
 
             } //Second charatcer loop END
-         
+
+            Console.WriteLine("What is your name?");
+            players[0].Name = Console.ReadLine();
+            Console.Clear();
+            GameLoop(players);
         }
 
-        static string ReadLine(string filePath, int line)
+        static void GameLoop(Player[] playerList)
         {
-            string output;
-            int count = 0;
-            StreamReader reader = new StreamReader(filePath);
-            do
+            string playerMessage;
+            bool game = true;
+            Random rand = new Random();
+            while(game == true)
             {
-                output = reader.ReadLine();
-                count++;
-            } while (count < line && !reader.EndOfStream);
-            reader.Close();
-            return output;
-        }
+                int endDiscussionVotes;
+                do //Go through each player to see if they have anything to say
+                {
+                    endDiscussionVotes = 0;
+                    for (int currentPlayer = 0; currentPlayer < playerList.Length; currentPlayer++)
+                    {
+                        Console.Write("Do you have anything you'd like to add ");
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine(playerList[currentPlayer].Name + "?");
+                        Console.ForegroundColor = ConsoleColor.Gray;                        
+                        if (currentPlayer == 0) //If it's the human controlled player
+                        {
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.Write(playerList[currentPlayer].Name + ": ");
+                            Console.ForegroundColor = ConsoleColor.Gray;
+                            playerMessage = Console.ReadLine();
+                            if (playerMessage.ToLower() == "no")
+                            {
+                                endDiscussionVotes++;
+                            }
+                        }
+                        else //If it's a computer controlled player
+                        {                            
+                            if (playerList[currentPlayer].message != "no")
+                            {
+                                string messageToAdd;
+                                messageToAdd = "I'm suspicious of ";
+                                for (int target = 0; target < playerList.Length; target++)
+                                {
+                                    if (playerList[currentPlayer].suspicions[target] > 75)
+                                    {                                        
+                                        messageToAdd += (playerList[target].Name + " and ");
+                                    }
+                                }
+                                playerList[currentPlayer].message = messageToAdd;
+                            }
+                            else
+                            {
+                                endDiscussionVotes++;
+                            }
+                            WriteMessage(playerList[currentPlayer].Name, playerList[currentPlayer].message + "\n", ConsoleColor.Green);
+                            playerList[currentPlayer].message = "no";
+                        }
+                        Thread.Sleep(50);
+                    }
 
-        static int GetFileLength(string filePath)
-        {
-            StreamReader reader = new StreamReader(filePath);
+                    Console.WriteLine(endDiscussionVotes + " of " + playerList.Length + " votes");
+                    Console.ReadLine();
+                    Console.Clear();
 
-            int length = 0;
-            do
-            {
-                reader.ReadLine();
-                length++;
-
-            } while (!reader.EndOfStream);
-
-            reader.Close();
-            return length;
+                } while (endDiscussionVotes < playerList.Length);
+                game = false;
+                Console.WriteLine("End of game");
+                Console.ReadLine();
+                
+            }
         }
 
         static void Main()
