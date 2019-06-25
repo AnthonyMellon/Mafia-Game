@@ -95,7 +95,7 @@ namespace Town_of_Salem
                 } //Set suspicions END
 
             } //Second charatcer loop END
-
+         
         }
 
         static string ReadLine(string filePath, int line)
